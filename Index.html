@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>reaction.zone</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', monospace;
+            background: #0a0a0a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+<body>
+    <!-- SPACE THEMED LOADING SCREEN -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="stars"></div>
+        <div class="twinkling"></div>
+        
+        <div class="loading-content">
+            <!-- space loader -->
+            <div class="planet">
+                <div class="ring"></div>
+            </div>
+            
+            <h1 class="loading-title">REACTION.<span class="blue">ZONE</span></h1>
+            
+            <div class="loading-bar-container">
+                <div class="loading-progress" id="loadingProgress"></div>
+            </div>
+            
+            <div class="percentage" id="percentageDisplay">0%</div>
+            
+            <button class="start-btn" id="enterBtn">
+                <span class="blink">▶</span> LAUNCH <span class="blink">▶</span>
+            </button>
+            
+            <div class="mission-text" id="loadingText">initiating launch sequence...</div>
+        </div>
+    </div>
+        .container {
+            max-width: 700px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* REACTION PAD */
+        .reaction-pad {
+            width: 100%;
+            aspect-ratio: 1 / 0.75;
+            border-radius: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.02s;
+            box-shadow: 0 12px 0 rgba(0,0,0,0.2);
+        }
+
+        .red-state {
+            background: #c92a2a;
+        }
+
+        .green-state {
+            background: #2b8a3e;
+        }
+
+        .reaction-pad h2 {
+            color: black;
+            font-size: 2rem;
+            letter-spacing: -0.5px;
+            text-transform: uppercase;
+            font-weight: 700;
+            text-shadow: 2px 2px 0 rgba(255,255,255,0.2);
+        }
+
+        /* STATS */
+        .stats {
+            background: #1a1a1a;
+            border-radius: 20px;
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            color: #eee;
+            border: 1px solid #333;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: #aaa;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .reset-btn {
+            background: #2d2d2d;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.75rem;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid #4a4a4a;
+            transition: 0.1s;
+        }
+
+        .reset-btn:hover {
+            background: #3d3d3d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- REACTION PAD -->
+        <div class="reaction-pad red-state" id="reactionPad">
+            <h2>CLICK WHEN GREEN</h2>
+        </div>
+
+        <!-- STATS BAR -->
+        <div class="stats">
+            <div class="stat-item">
+                <span class="stat-label">REACTION</span>
+                <span class="stat-value" id="reactionTimeDisplay">0</span>
+                <span style="color:#aaa">ms</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">BEST</span>
+                <span class="stat-value" id="bestTimeDisplay">—</span>
+                <span style="color:#aaa">ms</span>
+            </div>
+            <button class="reset-btn" id="resetBtn">↻ NEW</button>
+        </div>
+    </div>
+
+    <!-- MORE CONTENT COMING IN PART 2 (AUTO MODE SECRET) -->
+</body>
+</html>
+    </div> <!-- closing container from part 1 -->
+    
+    <!-- SECRET AUTO MODE (hidden until scroll) -->
+    <div class="auto-section" id="autoSection">
+        <div class="auto-container">
+            <div class="auto-header">
+                <span class="auto-icon">⚡</span>
+                <h3>AUTO MODE</h3>
+                <span class="auto-icon">⚡</span>
+            </div>
+            <p class="auto-desc">automated clicking • set your own speed</p>
+            
+            <div class="auto-controls">
+                <button class="auto-toggle" id="autoToggleBtn">ENABLE</button>
+                
+                <div class="auto-speed" id="autoSpeedControl" style="display: none;">
+                    <span>CLICK EVERY</span>
+                    <div class="speed-input-group">
+                        <input type="number" id="autoDelayInput" value="300" min="50" max="2000" step="10">
+                        <span>ms</span>
+                    </div>
+                </div>
+            </div>
+            <div class="auto-status" id="autoStatus">off</div>
+        </div>
+    </div>
+
+    <script>
+        // ---------- REACTION TEST CORE ----------
+        const pad = document.getElementById('reactionPad');
+        const reactionDisplay = document.getElementById('reactionTimeDisplay');
+        const bestDisplay = document.getElementById('bestTimeDisplay');
+        const resetBtn = document.getElementById('resetBtn');
+
+        let state = 'waiting'; // waiting, ready, green
+        let timerStart = 0;
+        let bestTime = localStorage.getItem('reactionBest') || null;
+        let timeoutId = null;
+
+        if (bestTime) {
+            bestDisplay.textContent = bestTime;
+        }
+
+        // switch to green after random delay
+        function goGreen() {
+            state = 'green';
+            pad.classList.remove('red-state');
+            pad.classList.add('green-state');
+            pad.querySelector('h2').textContent = 'CLICK NOW!';
+            timerStart = Date.now();
+        }
+
+        // reset to red/waiting
+        function resetTest(manual = true) {
+            if (timeoutId) clearTimeout(timeoutId);
+            state = 'waiting';
+            pad.classList.add('red-state');
+            pad.classList.remove('green-state');
+            pad.querySelector('h2').textContent = 'CLICK WHEN GREEN';
+            
+            if (manual) {
+                // start new cycle automatically
+                startCycle();
+            }
+        }
+
+        // start waiting for green
+        function startCycle() {
+            if (state === 'green' || state === 'ready') return;
+            state = 'ready';
+            // random 1-4 seconds
+            const delay = Math.floor(Math.random() * 3000) + 1000;
+            timeoutId = setTimeout(goGreen, delay);
+        }
+
+        // handle pad click
+        pad.addEventListener('click', function() {
+            if (state === 'green') {
+                // clicked on green - valid reaction
+                const reactionTime = Date.now() - timerStart;
+                reactionDisplay.textContent = reactionTime;
+                
+                // update best
+                if (!bestTime || reactionTime < parseInt(bestTime)) {
+                    bestTime = reactionTime;
+                    bestDisplay.textContent = reactionTime;
+                    localStorage.setItem('reactionBest', reactionTime);
+                }
+                
+                resetTest(true);
+            } 
+            else if (state === 'ready') {
+                // clicked too early (still red)
+                reactionDisplay.textContent = 'TOO SOON';
+                resetTest(true);
+            }
+            else if (state === 'waiting') {
+                // manual start
+                startCycle();
+            }
+        });
+
+        // reset button
+        resetBtn.addEventListener('click', function() {
+            if (timeoutId) clearTimeout(timeoutId);
+            state = 'waiting';
+            pad.classList.add('red-state');
+            pad.classList.remove('green-state');
+            pad.querySelector('h2').textContent = 'CLICK WHEN GREEN';
+            reactionDisplay.textContent = '0';
+            startCycle();
+        });
+
+        // auto-start on page load
+        window.addEventListener('load', startCycle);
+
+        // ---------- SECRET AUTO MODE ----------
+        const autoToggle = document.getElementById('autoToggleBtn');
+        const autoSpeedControl = document.getElementById('autoSpeedControl');
+        const autoStatus = document.getElementById('autoStatus');
+        const autoDelayInput = document.getElementById('autoDelayInput');
+
+        let autoMode = false;
+        let autoInterval = null;
+
+        // toggle auto mode
+        autoToggle.addEventListener('click', function() {
+            autoMode = !autoMode;
+            
+            if (autoMode) {
+                autoToggle.textContent = 'DISABLE';
+                autoToggle.style.background = '#2b8a3e';
+                autoSpeedControl.style.display = 'flex';
+                autoStatus.textContent = 'active';
+                autoStatus.style.color = '#69db7e';
+                
+                // start auto clicking
+                startAutoClick();
+            } else {
+                autoToggle.textContent = 'ENABLE';
+                autoToggle.style.background = '#2d2d2d';
+                autoSpeedControl.style.display = 'none';
+                autoStatus.textContent = 'off';
+                autoStatus.style.color = '#888';
+                
+                // stop auto clicking
+                if (autoInterval) clearInterval(autoInterval);
+            }
+        });
+
+        function startAutoClick() {
+            if (autoInterval) clearInterval(autoInterval);
+            
+            const delay = parseInt(autoDelayInput.value);
+            autoInterval = setInterval(() => {
+                // simulate click on reaction pad
+                if (state === 'green') {
+                    const reactionTime = Date.now() - timerStart;
+                    reactionDisplay.textContent = reactionTime;
+                    
+                    if (!bestTime || reactionTime < parseInt(bestTime)) {
+                        bestTime = reactionTime;
+                        bestDisplay.textContent = reactionTime;
+                        localStorage.setItem('reactionBest', reactionTime);
+                    }
+                    resetTest(true);
+                } else if (state === 'ready') {
+                    reactionDisplay.textContent = 'TOO SOON';
+                    resetTest(true);
+                }
+            }, delay);
+        }
+
+        // update interval when delay changes
+        autoDelayInput.addEventListener('change', function() {
+            if (autoMode) {
+                startAutoClick();
+            }
+        });
+
+    </script>
+
+    <style>
+        /* AUTO MODE STYLES (secret at bottom) */
+        .auto-section {
+            margin-top: 8rem;
+            width: 100%;
+            max-width: 700px;
+            border-top: 2px dashed #333;
+            padding-top: 3rem;
+        }
+
+        .auto-container {
+            background: #141414;
+            border-radius: 32px;
+            padding: 2rem;
+            border: 1px solid #2a2a2a;
+            box-shadow: 0 8px 0 #080808;
+        }
+
+        .auto-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .auto-header h3 {
+            color: #ffd43b;
+            font-size: 1.6rem;
+            letter-spacing: 4px;
+            font-weight: 700;
+        }
+
+        .auto-icon {
+            font-size: 1.8rem;
+        }
+
+        .auto-desc {
+            text-align: center;
+            color: #888;
+            margin-bottom: 1.75rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        .auto-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .auto-toggle {
+            background: #2d2d2d;
+            color: white;
+            border: none;
+            padding: 1rem 2.5rem;
+            border-radius: 60px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            cursor: pointer;
+            border: 1px solid #4a4a4a;
+            transition: 0.1s;
+            width: fit-content;
+        }
+
+        .auto-speed {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: #1e1e1e;
+            padding: 1rem 1.5rem;
+            border-radius: 40px;
+        }
+
+        .auto-speed span {
+            color: #ccc;
+            font-weight: 600;
+        }
+
+        .speed-input-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .speed-input-group input {
+            background: #0f0f0f;
+            border: 1px solid #3a3a3a;
+            color: white;
+            padding: 0.5rem;
+            width: 80px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+
+        .auto-status {
+            text-align: center;
+            margin-top: 1rem;
+            color: #888;
+            text-transform: uppercase;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+    </style>
+/* ===== SPACE LOADING SCREEN ===== */
+.loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at bottom, #0d1d31 0%, #0c0d13 100%);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.8s ease;
+    font-family: 'Courier New', monospace;
+}
+
+.stars {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    background-image: 
+        radial-gradient(2px 2px at 20px 30px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 80px 190px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 160px 250px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 300px 100px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 500px 400px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 700px 500px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 900px 600px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 1100px 300px, #fff, rgba(0,0,0,0));
+    background-size: 200px 200px;
+    animation: stars 200s linear infinite;
+}
+
+.twinkling {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    background-image: 
+        radial-gradient(1px 1px at 130px 240px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 270px 420px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 350px 150px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 590px 80px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 870px 660px, #fff, rgba(0,0,0,0));
+    background-size: 300px 300px;
+    animation: twinkle 4s ease-in-out infinite;
+}
+
+@keyframes stars {
+    from { transform: translateY(0px); }
+    to { transform: translateY(-2000px); }
+}
+
+@keyframes twinkle {
+    0% { opacity: 0.2; }
+    50% { opacity: 0.8; }
+    100% { opacity: 0.2; }
+}
+
+.loading-content {
+    position: relative;
+    z-index: 10;
+    max-width: 600px;
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    text-align: center;
+    background: rgba(10, 10, 20, 0.7);
+    backdrop-filter: blur(5px);
+    padding: 3rem 2rem;
+    border-radius: 40px;
+    border: 1px solid rgba(100, 200, 255, 0.3);
+    box-shadow: 0 0 50px rgba(0, 100, 255, 0.2);
+}
+
+.planet {
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(45deg, #4169e1, #1e3c72);
+    border-radius: 50%;
+    position: relative;
+    box-shadow: 0 0 50px #4169e1;
+    animation: float 6s ease-in-out infinite;
+}
+
+.ring {
+    position: absolute;
+    width: 140px;
+    height: 20px;
+    top: 40px;
+    left: -20px;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 215, 0, 0.5);
+    transform: rotateX(75deg);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+@keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+    100% { transform: translateY(0px); }
+}
+
+.loading-title {
+    color: white;
+    font-size: 3rem;
+    font-weight: 800;
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    font-family: 'Courier New', monospace;
+    text-shadow: 0 0 20px cyan;
+}
+
+.blue {
+    color: #00ffff;
+    text-shadow: 0 0 20px cyan;
+}
+
+.loading-bar-container {
+    width: 80%;
+    height: 20px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 30px;
+    overflow: hidden;
+    border: 1px solid #00ffff;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    margin: 1rem 0;
+}
+
+.loading-progress {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #00ffff, #4169e1);
+    transition: width 0.3s ease;
+    box-shadow: 0 0 20px cyan;
+}
+
+.percentage {
+    color: #00ffff;
+    font-size: 2.5rem;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    text-shadow: 0 0 20px cyan;
+}
+
+.start-btn {
+    background: transparent;
+    color: white;
+    border: 2px solid #00ffff;
+    padding: 1rem 3rem;
+    border-radius: 50px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: 0.3s;
+    font-family: 'Courier New', monospace;
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+    margin-top: 1rem;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+}
+
+.start-btn:hover {
+    background: #00ffff;
+    color: black;
+    box-shadow: 0 0 50px cyan;
+    border-color: white;
+}
+
+.blink {
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+.mission-text {
+    color: #88aaff;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    font-family: 'Courier New', monospace;
+    margin-top: 0.5rem;
+}
+</body>
+  </html>
